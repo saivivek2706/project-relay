@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: project-relay
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/project_relay}
+    username: ${DB_USERNAME:relay}
+    password: ${DB_PASSWORD:relay_local_only}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+layering:
+  min-hops: 3
+  max-hops: 6
+  max-hop-gap: PT30M
+  window: PT2H
+  min-amount: 100000.00
+  min-hop-retention: 0.9000
+  min-end-to-end-retention: 0.7500
+  max-expansions: 5000
+  store: memory
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
