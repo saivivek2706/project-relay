@@ -1,0 +1,2 @@
+package com.azentio.projectrelay.util;
+public final class Masking{private Masking(){} public static String mask(String acct){if(acct==null||acct.length()<4)return "XXXXXX****";return "XXXXXX"+acct.substring(acct.length()-4);} public static String maskPath(java.util.List<String> accts){return accts.stream().map(Masking::mask).collect(java.util.stream.Collectors.joining(" -> "));}}

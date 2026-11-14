@@ -1,0 +1,12 @@
+package com.azentio.projectrelay.web;
+import com.azentio.projectrelay.repo.*;import com.azentio.projectrelay.util.Masking;import org.springframework.data.domain.*;import org.springframework.web.bind.annotation.*;import java.util.*;
+@RestController @RequestMapping("/api/alerts") public class AlertController{
+ private final AlertRepository alerts; private final TransferRepository transfers; public AlertController(AlertRepository a,TransferRepository t){alerts=a;transfers=t;}
+ @GetMapping public Map<String,Object> list(@RequestParam(defaultValue="OPEN") String status,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size){
+   var p=alerts.findByStatusOrderByUpdatedAtDesc(status,PageRequest.of(page,size)); List<Map<String,Object>> items=new ArrayList<>();
+   for(var a: p.getContent()){ var m=new LinkedHashMap<String,Object>(); m.put("alertId",a.alertId); m.put("hops",a.hops); m.put("firstAmount",a.firstAmount); m.put("lastAmount",a.lastAmount); m.put("endToEndRetention",a.endToEndRetention); m.put("startAt",a.startAt); m.put("endAt",a.endAt); m.put("status",a.status); m.put("maskedPath",maskedPath(a)); items.add(m); }
+   return Map.of("content",items,"page",page,"size",size,"totalElements",p.getTotalElements());
+ }
+ @GetMapping("/{id}") public Map<String,Object> get(@PathVariable Long id){ var a=alerts.findById(id).orElseThrow(); var hops=new ArrayList<Map<String,Object>>(); var chain=a.chainIds(); for(int i=0;i<chain.size();i++){ var t=transfers.findById(chain.get(i)).orElseThrow(); var m=new LinkedHashMap<String,Object>(); m.put("transferId",t.transferId); m.put("fromAccount",Masking.mask(t.fromAccount)); m.put("toAccount",Masking.mask(t.toAccount)); m.put("amount",t.amount); m.put("occurredAt",t.occurredAt); if(i>0){ var prev=transfers.findById(chain.get(i-1)).orElseThrow(); m.put("gapMinutes",java.time.Duration.between(prev.occurredAt,t.occurredAt).toMinutes()); m.put("hopRetention",t.amount.divide(prev.amount,4,java.math.RoundingMode.HALF_UP)); } hops.add(m);} return Map.of("alertId",a.alertId,"hops",hops,"status",a.status,"endToEndRetention",a.endToEndRetention,"startAt",a.startAt,"endAt",a.endAt); }
+ private String maskedPath(com.azentio.projectrelay.domain.Alert a){ List<String> accts=new ArrayList<>(); for(String tid:a.chainIds()){ var t=transfers.findById(tid).orElse(null); if(t!=null){ if(accts.isEmpty()) accts.add(t.fromAccount); accts.add(t.toAccount);} } return Masking.maskPath(accts); }
+}

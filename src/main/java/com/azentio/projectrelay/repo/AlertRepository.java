@@ -1,0 +1,3 @@
+package com.azentio.projectrelay.repo;
+import com.azentio.projectrelay.domain.Alert;import org.springframework.data.domain.*;import org.springframework.data.jpa.repository.JpaRepository;import java.util.*;
+public interface AlertRepository extends JpaRepository<Alert,Long>{ Page<Alert> findByStatusOrderByUpdatedAtDesc(String status,Pageable p); List<Alert> findByStatusOrderByUpdatedAtDesc(String status); }
