@@ -121,6 +121,8 @@ Run backend tests without Docker:
 mvn test
 ```
 
+Docker-backed Redis TTL/trimming coverage is tagged as an integration test and is excluded from the plain run; execute it separately with `mvn -Pintegration test` (Docker required).
+
 The Spring tests activate the `test` profile and use H2. Kafka behavior is tested with Spring's embedded Kafka broker. The parity test compares the in-memory edge-store path against the SQL reference path; the seeded replay test checks the labelled chains and excludes decoys.
 
 Run frontend tests and build:
@@ -137,7 +139,7 @@ npm run build
 Start the application with `LAYERING_STORE=redis`, then run:
 
 ```bash
-BASE_URL=http://localhost:8080 ./scripts/load.sh 10000 8
+BASE_URL=http://localhost:8080 bash scripts/load.sh 10000 8
 ```
 
 The script sends at least 10,000 requests, primes a 300-edge hub before evaluating its outgoing transfer, uses at least eight concurrent clients for the remaining requests, and prints p50/p95/p99 POST latency plus basic machine information. **Measured p50/p95/p99 and the exact machine used must be recorded here after running the script; no benchmark result is claimed by this repository change.** The assignment target is p95 below 50 ms.
