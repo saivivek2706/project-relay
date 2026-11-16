@@ -123,7 +123,7 @@ mvn test
 
 Docker-backed Redis TTL/trimming coverage is tagged as an integration test and is excluded from the plain run; execute it separately with `mvn -Pintegration test` (Docker required).
 
-The Spring tests activate the `test` profile and use H2. Kafka behavior is tested with Spring's embedded Kafka broker. The parity test compares the in-memory edge-store path against the SQL reference path; the seeded replay test asserts exactly one alert per labelled chain, zero decoy/background alerts, and prints full-dataset precision and recall.
+The Spring tests activate the `test` profile and use H2. Kafka behavior is tested with Spring's embedded Kafka broker. The parity test compares the in-memory edge-store path against the SQL reference path; the seeded replay test asserts exactly one alert per labelled chain, zero decoy/background alerts, and prints full-dataset precision and recall. On the fixed-seed 5,303-transfer dataset in GitHub Actions (commit `22705482652f0cf7a77e987cc19bca1b2d280ec3`), the replay produced TP=10, FP=0, FN=0: precision 100.00%, recall 100.00%. This is a deterministic synthetic-dataset result, not a claim about production data.
 
 Run frontend tests and build:
 
