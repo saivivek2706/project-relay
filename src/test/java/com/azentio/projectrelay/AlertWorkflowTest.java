@@ -5,7 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @ActiveProfiles("test") @SpringBootTest @AutoConfigureMockMvc public class AlertWorkflowTest{
  @Autowired MockMvc mvc;
  String tx(String id,String f,String to,String amt,String at){return String.format("{\"transferId\":\"%s\",\"fromAccount\":\"%s\",\"toAccount\":\"%s\",\"amount\":%s,\"occurredAt\":\"%s\"}",id,f,to,amt,at);}
- String patch(String s,String note,String actor){return String.format("{\"status\":\"%s\",\"note\":\"%s\",\"actor\":\"%s\"}",s,note,actor);}
+ String patchBody(String s,String note,String actor){return String.format("{\"status\":\"%s\",\"note\":\"%s\",\"actor\":\"%s\"}",s,note,actor);}
  @Test void validTransitionWritesAuditAndInvalidReturns409AndNonOpenNotExtended() throws Exception{
    // build 3-hop alert
    mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("W1","6000000001","6000000002","200000.00","2026-05-01T09:00:00Z"))).andExpect(status().isCreated());
@@ -13,7 +13,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
    var r=mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("W3","6000000003","6000000004","188000.00","2026-05-01T09:10:00Z"))).andExpect(status().isCreated()).andReturn();
    String body=r.getResponse().getContentAsString(); long alertId=Long.parseLong(body.replaceAll(".*\"alertId\":(\\d+).*","$1"));
    // invalid: OPEN -> ESCALATED
-   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patch("ESCALATED","skip","analyst1"))).andExpect(status().isConflict());
+   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patchBody("ESCALATED","skip","analyst1"))).andExpect(status().isConflict());
    // valid: OPEN -> INVESTIGATING
    mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patch("INVESTIGATING","looking into account 6100000001","analyst1"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("INVESTIGATING"));
    // audit row
