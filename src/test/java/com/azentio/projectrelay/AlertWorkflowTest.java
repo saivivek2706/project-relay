@@ -20,9 +20,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
    var audit=mvc.perform(get("/api/alerts/"+alertId+"/audit")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
    assertTrue(audit.contains("INVESTIGATING")); assertTrue(audit.contains("analyst1")); assertTrue(audit.contains("looking into account XXXXXX0001"));
    // valid: INVESTIGATING -> FALSE_POSITIVE
-   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patch("FALSE_POSITIVE","benign","analyst1"))).andExpect(status().isOk());
+   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patchBody("FALSE_POSITIVE","benign","analyst1"))).andExpect(status().isOk());
    // invalid: FALSE_POSITIVE -> INVESTIGATING
-   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patch("INVESTIGATING","reopen","analyst1"))).andExpect(status().isConflict());
+   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patchBody("INVESTIGATING","reopen","analyst1"))).andExpect(status().isConflict());
    // non-OPEN not extended: 4th hop should create a NEW alert, not extend this one
    var r2=mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("W4","6000000004","6000000005","182000.00","2026-05-01T09:15:00Z"))).andExpect(status().isCreated()).andReturn();
    long newId=Long.parseLong(r2.getResponse().getContentAsString().replaceAll(".*\"alertId\":(\\d+).*","$1"));
