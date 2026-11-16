@@ -14,33 +14,34 @@ public class Alert {
     @Column(name = "alert_id")
     public Long alertId;
 
+    @Column(nullable = false)
     public int hops;
 
-    @Column(name = "first_amount", precision = 19, scale = 2)
+    @Column(name = "first_amount", nullable = false, precision = 19, scale = 2)
     public BigDecimal firstAmount;
 
-    @Column(name = "last_amount", precision = 19, scale = 2)
+    @Column(name = "last_amount", nullable = false, precision = 19, scale = 2)
     public BigDecimal lastAmount;
 
-    @Column(name = "end_to_end_retention", precision = 10, scale = 4)
+    @Column(name = "end_to_end_retention", nullable = false, precision = 10, scale = 4)
     public BigDecimal endToEndRetention;
 
-    @Column(name = "start_at")
+    @Column(name = "start_at", nullable = false)
     public OffsetDateTime startAt;
 
-    @Column(name = "end_at")
+    @Column(name = "end_at", nullable = false)
     public OffsetDateTime endAt;
 
-    @Column(length = 20)
+    @Column(nullable = false, length = 20)
     public String status = "OPEN";
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false)
     public OffsetDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", nullable = false)
     public OffsetDateTime updatedAt;
 
-    @Column(name = "chain_transfer_ids", columnDefinition = "TEXT")
+    @Column(name = "chain_transfer_ids", nullable = false, columnDefinition = "TEXT")
     public String chainTransferIds;
 
     public List<String> chainIds() {
