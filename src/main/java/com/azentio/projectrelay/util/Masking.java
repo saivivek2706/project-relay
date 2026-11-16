@@ -6,7 +6,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public final class Masking {
-    private static final Pattern ACCOUNT_NUMBER = Pattern.compile("(?<!\\\\d)\\\\d{10,16}(?!\\\\d)");
+    private static final Pattern ACCOUNT_NUMBER = Pattern.compile("(?<!\\d)\\d{10,16}(?!\\d)");
 
     private Masking() { }
 
