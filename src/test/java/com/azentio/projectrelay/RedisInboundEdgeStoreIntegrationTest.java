@@ -44,6 +44,8 @@ class RedisInboundEdgeStoreIntegrationTest {
 
             store.add(new Transfer("OLD", "1111111111", destination,
                     new BigDecimal("200000.00"), now.minusHours(3)));
+            store.add(new Transfer("OLD-BOUNDARY", "4444444444", destination,
+                    new BigDecimal("195000.00"), now.minusHours(2).plusNanos(50)));
             store.add(new Transfer("RECENT", "2222222222", destination,
                     new BigDecimal("190000.00"), now));
             store.add(new Transfer("AFTER-BOUND", "3333333333", destination,
