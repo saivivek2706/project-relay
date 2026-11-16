@@ -7,6 +7,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -26,6 +27,7 @@ public class ChainDetector {
         this(cfg, null);
     }
 
+    @Autowired
     public ChainDetector(LayeringProperties cfg, MeterRegistry meters) {
         this.cfg = cfg;
         this.meters = meters;
