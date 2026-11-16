@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -40,46 +39,34 @@ class ParityTest {
         Path file = Path.of("/tmp/seeded-parity.jsonl");
         Generator.main(new String[]{"42", file.toString(), "/tmp/labels-parity.json"});
 
+        transfers.deleteAll();
         InMemoryInboundEdgeStore memory = new InMemoryInboundEdgeStore(cfg);
-        List<Transfer> all = new ArrayList<>();
+        ChainDetector detector = new ChainDetector(cfg, new SimpleMeterRegistry());
+        Set<List<String>> memoryChains = new HashSet<>();
+        Set<List<String>> sqlChains = new HashSet<>();
+
+        // Replay chronologically so both stores see exactly the same event-time history.
         for (String line : Files.readAllLines(file)) {
             TransferRequest request = mapper.readValue(line, TransferRequest.class);
             Transfer transfer = new Transfer(request.transferId(), request.fromAccount(),
                     request.toAccount(), request.amount(), request.occurredAt());
-            all.add(transfer);
+
+            transfers.saveAndFlush(transfer);
             memory.add(transfer);
+
+            detector.findBest(transfer, account -> memory.inbound(account,
+                    transfer.occurredAt, transfer.occurredAt.minus(cfg.window())))
+                    .ifPresent(chain -> memoryChains.add(
+                            chain.transfers().stream().map(t -> t.transferId).toList()));
+
+            detector.findBest(transfer, account -> sql.inbound(account,
+                    transfer.occurredAt, transfer.occurredAt.minus(cfg.window())))
+                    .ifPresent(chain -> sqlChains.add(
+                            chain.transfers().stream().map(t -> t.transferId).toList()));
         }
-        transfers.saveAll(all);
-        transfers.flush();
-
-        ChainDetector detector = new ChainDetector(cfg, new SimpleMeterRegistry());
-        Set<List<String>> memoryChains = detectAll(detector, all,
-                account -> memory.inbound(account, evaluationBefore.get(),
-                        evaluationBefore.get().minus(cfg.window())));
-
-        Set<List<String>> sqlChains = detectAll(detector, all,
-                account -> {
-                    // The lookup's time bounds are supplied per evaluation below.
-                    return sql.inbound(account, evaluationBefore.get(),
-                            evaluationBefore.get().minus(cfg.window()));
-                });
 
         assertEquals(memoryChains, sqlChains,
                 "memory edge store and Task 1 SQL reference must return identical chain sequences");
         assertTrue(memoryChains.stream().anyMatch(chain -> chain.get(0).startsWith("PLANTED-")));
-    }
-
-    private final ThreadLocal<java.time.OffsetDateTime> evaluationBefore = new ThreadLocal<>();
-
-    private Set<List<String>> detectAll(ChainDetector detector, List<Transfer> all,
-                                        java.util.function.Function<String, List<Transfer>> lookup) {
-        Set<List<String>> chains = new HashSet<>();
-        for (Transfer transfer : all) {
-            evaluationBefore.set(transfer.occurredAt);
-            detector.findBest(transfer, lookup).ifPresent(chain ->
-                    chains.add(chain.transfers().stream().map(t -> t.transferId).toList()));
-        }
-        evaluationBefore.remove();
-        return chains;
     }
 }
