@@ -1,7 +1,7 @@
 package com.azentio.projectrelay;
-import org.junit.jupiter.api.Test;import org.springframework.beans.factory.annotation.Autowired;import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;import org.springframework.boot.test.context.SpringBootTest;import org.springframework.http.MediaType;import org.springframework.test.web.servlet.MockMvc;
+import org.junit.jupiter.api.Test;import org.springframework.beans.factory.annotation.Autowired;import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;import org.springframework.boot.test.context.SpringBootTest;import org.springframework.test.context.ActiveProfiles;import org.springframework.http.MediaType;import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-@SpringBootTest @AutoConfigureMockMvc public class ApiTest{
+@ActiveProfiles("test") @SpringBootTest @AutoConfigureMockMvc public class ApiTest{
  @Autowired MockMvc mvc;
  String tx(String id,String f,String to,String amt,String at){return String.format("{\"transferId\":\"%s\",\"fromAccount\":\"%s\",\"toAccount\":\"%s\",\"amount\":%s,\"occurredAt\":\"%s\"}",id,f,to,amt,at);}
  @Test void validationAndIdempotencyAndExtensionAndMasking() throws Exception{
