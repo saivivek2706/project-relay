@@ -30,10 +30,10 @@ AI assistance was used during implementation and review of Project Relay. The ca
 GitHub Actions executed the automated checks on commit `22705482652f0cf7a77e987cc19bca1b2d280ec3`:
 - `mvn test`: 21 tests passed.
 - `npm test` and `npm run build`: passed.
-- `mvn -Pintegration test`: tagged Redis TTL and event-time trimming integration test passed with Docker.
+- `mvn -Pintegration test`: the Redis integration test was initially skipped because the GitHub runner had no Docker socket. The test and CI job were then changed to use a separately installed Redis service; the latest run must be checked for its actual result.
 - Seeded replay: TP=10, FP=0, FN=0; precision=100.00%, recall=100.00% on the 5,303-transfer fixed-seed synthetic dataset.
 
-The latest branch adds additional boundary assertions after that successful run; the updated CI run is the final gate for those additions. The load test has not yet been executed, so no p50/p95/p99 result or p95-target claim is made. The required investigator-view screenshot also still needs to be captured from a running UI.
+The latest branch adds additional boundary assertions, a Redis service-backed integration test, and documentation updates; the updated CI run is the final gate for those additions. The load test has not yet been executed, so no p50/p95/p99 result or p95-target claim is made. The required investigator-view screenshot also still needs to be captured from a running UI.
 
 ## Candidate review checklist
 
