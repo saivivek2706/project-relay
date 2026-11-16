@@ -23,6 +23,6 @@ import static org.junit.jupiter.api.Assertions.*;import static org.springframewo
            "the duplicate event must not create a second alert");
    // DLQ has malformed with header
    var cprops=new Properties(); cprops.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,broker.getBrokersAsString()); cprops.put(ConsumerConfig.GROUP_ID_CONFIG,"dlq-check-"+UUID.randomUUID()); cprops.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,"earliest"); cprops.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,StringDeserializer.class); cprops.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,StringDeserializer.class);
-   try(var cons=new KafkaConsumer<String,String>(cprops)){ cons.subscribe(List.of("transfers.v1.dlq")); var recs=cons.poll(Duration.ofSeconds(10)); assertTrue(recs.count()>=1); var bad = recs.records("transfers.v1.dlq").stream().filter(x -> x.value().equals("not-json{")).findFirst().orElseThrow(); assertNotNull(bad.headers().lastHeader("x-error-reason")); }
+   try(var cons=new KafkaConsumer<String,String>(cprops)){ cons.subscribe(List.of("transfers.v1.dlq")); var recs=cons.poll(Duration.ofSeconds(10)); assertTrue(recs.count()>=1); boolean foundBad=false; for (var record : recs.records("transfers.v1.dlq")) { if (record.value().equals("not-json{")) { foundBad=true; assertNotNull(record.headers().lastHeader("x-error-reason")); } } assertTrue(foundBad, "malformed event must be present in the DLQ"); }
  }
 }
