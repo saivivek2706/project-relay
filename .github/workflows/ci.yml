@@ -44,5 +44,13 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: maven
-      - name: Run Docker-backed Redis integration test
+      - name: Install and start Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y redis-server
+          sudo service redis-server start
+      - name: Run Redis integration test
+        env:
+          REDIS_HOST: localhost
+          REDIS_PORT: "6379"
         run: mvn -B -Pintegration test
