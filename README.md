@@ -29,7 +29,7 @@ flowchart LR
   API --> UI[React investigator UI]
 ```
 
-The SQL table is the source of truth for transfers. `InboundEdgeStore` supplies the backwards lookup used by detection; select `memory` or `redis` with `layering.store`. `SqlInboundEdgeStore` remains available as the reference implementation for parity testing.
+The SQL table is the source of truth for transfers. `InboundEdgeStore` supplies the backwards lookup used by detection; select `memory` or `redis` with `layering.store`. On startup, the selected hot store is rehydrated from transfers inside the active event-time window. `SqlInboundEdgeStore` remains available as the reference implementation for parity testing.
 
 ## Run locally
 
