@@ -1,5 +1,6 @@
 package com.azentio.projectrelay.service;
 
+import com.azentio.projectrelay.config.LayeringProperties;
 import com.azentio.projectrelay.domain.Alert;
 import com.azentio.projectrelay.domain.Transfer;
 import com.azentio.projectrelay.dto.TransferRequest;
@@ -19,14 +20,16 @@ public class TransferService {
     private final AlertRepository alerts;
     private final ChainDetector detector;
     private final InboundEdgeStore edgeStore;
+    private final LayeringProperties cfg;
 
     @Autowired
     public TransferService(TransferRepository transfers, AlertRepository alerts,
-                           ChainDetector detector, InboundEdgeStore edgeStore) {
+                           ChainDetector detector, InboundEdgeStore edgeStore, LayeringProperties cfg) {
         this.transfers = transfers;
         this.alerts = alerts;
         this.detector = detector;
         this.edgeStore = edgeStore;
+        this.cfg = cfg;
     }
 
     public record Decision(String transferId, String decision, Long alertId, boolean duplicate) {
@@ -52,7 +55,7 @@ public class TransferService {
         edgeStore.add(transfer);
         Optional<ChainDetector.Chain> detected = detector.findBest(transfer,
                 account -> edgeStore.inbound(account, transfer.occurredAt,
-                        transfer.occurredAt.minus(java.time.Duration.ofHours(2))));
+                        transfer.occurredAt.minus(cfg.window())));
 
         if (detected.isEmpty()) return new Decision(req.transferId(), "CLEAR", null);
 
