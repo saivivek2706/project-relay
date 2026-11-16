@@ -11,11 +11,13 @@ if (( CONC < 8 )); then echo "concurrency must be at least 8" >&2; exit 2; fi
 
 INPUT="/tmp/project-relay-load.jsonl"
 LATENCIES="/tmp/project-relay-load-latencies.txt"
+RUN_ID="$(date +%s)"
 : > "$LATENCIES"
 
-python3 - "$COUNT" > "$INPUT" <<'PY'
+python3 - "$COUNT" "$RUN_ID" > "$INPUT" <<'PY'
 import datetime, json, random, sys
 count = int(sys.argv[1])
+run_id = sys.argv[2]
 rnd = random.Random(7)
 base = datetime.datetime(2026, 1, 1, 9, tzinfo=datetime.timezone.utc)
 
@@ -25,7 +27,7 @@ def emit(obj):
 # Prime the Redis sorted set with 300 inbound edges before evaluating the hub.
 for i in range(300):
     emit({
-        "transferId": f"HUB-IN-{i}",
+        "transferId": f"HUB-IN-{run_id}-{i}",
         "fromAccount": f"{4_000_000_000+i:010d}",
         "toAccount": "4999999999",
         "amount": "1000.00",
@@ -34,7 +36,7 @@ for i in range(300):
 
 # This evaluation sees all 300 inbound edges for the busy account.
 emit({
-    "transferId": "HUB-OUT",
+    "transferId": f"HUB-OUT-{run_id}",
     "fromAccount": "4999999999",
     "toAccount": "4999999998",
     "amount": "970.00",
@@ -44,7 +46,7 @@ emit({
 for i in range(count - 301):
     account = 5_000_000_000 + i * 2
     emit({
-        "transferId": f"LOAD-{i}",
+        "transferId": f"LOAD-{run_id}-{i}",
         "fromAccount": f"{account:010d}",
         "toAccount": f"{account+1:010d}",
         "amount": f"{1000+rnd.random()*49000:.2f}",
