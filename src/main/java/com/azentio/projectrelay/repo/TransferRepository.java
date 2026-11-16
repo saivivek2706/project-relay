@@ -3,4 +3,5 @@ import com.azentio.projectrelay.domain.Transfer;import org.springframework.data.
 public interface TransferRepository extends JpaRepository<Transfer,String>{
  @Query("select t from Transfer t where t.toAccount=:acct and t.occurredAt < :before and t.occurredAt >= :after order by t.occurredAt desc, t.transferId asc")
  List<Transfer> findInbound(@Param("acct") String acct,@Param("before") OffsetDateTime before,@Param("after") OffsetDateTime after);
+ List<Transfer> findByOccurredAtAfterOrderByOccurredAtAsc(OffsetDateTime after);
 }
