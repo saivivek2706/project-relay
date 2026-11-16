@@ -7,10 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.utility.DockerImageName;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -21,16 +17,12 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("integration")
-@Testcontainers(disabledWithoutDocker = true)
 class RedisInboundEdgeStoreIntegrationTest {
-    @Container
-    static final GenericContainer<?> REDIS =
-            new GenericContainer<>(DockerImageName.parse("redis:7-alpine")).withExposedPorts(6379);
-
     @Test
     void trimsOldEventTimeEntriesAndSetsKeyTtl() {
-        LettuceConnectionFactory connection = new LettuceConnectionFactory(
-                REDIS.getHost(), REDIS.getMappedPort(6379));
+        String host = System.getenv().getOrDefault("REDIS_HOST", "localhost");
+        int port = Integer.parseInt(System.getenv().getOrDefault("REDIS_PORT", "6379"));
+        LettuceConnectionFactory connection = new LettuceConnectionFactory(host, port);
         connection.afterPropertiesSet();
         try {
             StringRedisTemplate template = new StringRedisTemplate(connection);
