@@ -54,9 +54,8 @@ class ParityTest {
 
         ChainDetector detector = new ChainDetector(cfg, new SimpleMeterRegistry());
         Set<List<String>> memoryChains = detectAll(detector, all,
-                account -> memory.inbound(account,
-                        all.get(all.size() - 1).occurredAt.plusSeconds(1),
-                        all.get(0).occurredAt.minus(cfg.window())));
+                account -> memory.inbound(account, evaluationBefore.get(),
+                        evaluationBefore.get().minus(cfg.window())));
 
         Set<List<String>> sqlChains = detectAll(detector, all,
                 account -> {
