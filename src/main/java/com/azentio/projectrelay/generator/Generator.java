@@ -47,14 +47,14 @@ public final class Generator {
 
         // Decoy 1: exactly one failed condition, a 45-minute hop gap.
         addDecoy(rows, "DECOY-GAP", 2_000_000_000L, base.plusHours(40),
-                new BigDecimal("200000.00"), new BigDecimal("0.97"), 3, 45, -1);
+                new BigDecimal("200000.00"), new BigDecimal("0.97"), 3, 45);
 
         // Decoy 2: exactly one failed condition, one hop forwards only 80%.
         addSplitDecoy(rows, base.plusHours(44));
 
         // Decoy 3: a valid pass-through with only two hops (below min-hops).
         addDecoy(rows, "DECOY-TWO-HOP", 2_200_000_000L, base.plusHours(48),
-                new BigDecimal("200000.00"), new BigDecimal("0.97"), 2, 5, -1);
+                new BigDecimal("200000.00"), new BigDecimal("0.97"), 2, 5);
 
         // Busy hub: 250 inbound edges in a single window. Amounts are below min-amount.
         long hub = 2_300_000_000L;
@@ -105,8 +105,7 @@ public final class Generator {
 
     private static void addDecoy(List<Row> rows, String prefix, long accountBase,
                                  OffsetDateTime start, BigDecimal firstAmount,
-                                 BigDecimal retention, int hops, int gapMinutes,
-                                 int ignored) {
+                                 BigDecimal retention, int hops, int gapMinutes) {
         BigDecimal amount = firstAmount;
         OffsetDateTime at = start;
         for (int i = 0; i < hops; i++) {
