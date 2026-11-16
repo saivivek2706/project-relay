@@ -14,10 +14,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.HashSet;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -56,7 +56,7 @@ class SeededReplayTest {
                 .param("status", "OPEN").param("page", "0").param("size", "100"))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
 
-        Set<List<String>> detectedFromDataset = new HashSet<>();
+        List<List<String>> detectedFromDataset = new ArrayList<>();
         for (JsonNode alert : alertPage.path("content")) {
             long alertId = alert.path("alertId").asLong();
             JsonNode detail = mapper.readTree(mvc.perform(get("/api/alerts/" + alertId))
@@ -66,17 +66,19 @@ class SeededReplayTest {
             if (ids.stream().anyMatch(generatedIds::contains)) detectedFromDataset.add(List.copyOf(ids));
         }
 
-        Set<List<String>> truePositives = new HashSet<>(detectedFromDataset);
-        truePositives.retainAll(expected);
-        Set<List<String>> falsePositives = new HashSet<>(detectedFromDataset);
-        falsePositives.removeAll(expected);
-        Set<List<String>> falseNegatives = new HashSet<>(expected);
-        falseNegatives.removeAll(detectedFromDataset);
-        double precision = detectedFromDataset.isEmpty() ? 1.0 : (double) truePositives.size() / detectedFromDataset.size();
-        double recall = (double) truePositives.size() / expected.size();
+        long truePositives = detectedFromDataset.stream().filter(expected::contains).count();
+        long falsePositives = detectedFromDataset.size() - truePositives;
+        long falseNegatives = expected.stream().filter(chain -> !detectedFromDataset.contains(chain)).count();
+        double precision = detectedFromDataset.isEmpty() ? 1.0 : (double) truePositives / detectedFromDataset.size();
+        double recall = (double) truePositives / expected.size();
         System.out.printf("Seeded replay: TP=%d FP=%d FN=%d precision=%.2f%% recall=%.2f%%%n",
-                truePositives.size(), falsePositives.size(), falseNegatives.size(), precision * 100, recall * 100);
-        assertEquals(expected, detectedFromDataset, "each planted chain must have exactly one matching alert and no decoy/background alert");
+                truePositives, falsePositives, falseNegatives, precision * 100, recall * 100);
+        for (List<String> chain : expected) {
+            assertEquals(1, java.util.Collections.frequency(detectedFromDataset, chain),
+                    "planted chain must have exactly one alert: " + chain);
+        }
+        assertEquals(0, falsePositives, "no decoy or background alert may be created");
+        assertEquals(0, falseNegatives, "every planted chain must be detected");
         assertEquals(1.0, precision);
         assertEquals(1.0, recall);
     }
