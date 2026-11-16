@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
    org.junit.jupiter.api.Assertions.assertEquals(4,detail.path("hops").size());
    var res=mvc.perform(get("/api/alerts?status=OPEN")).andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("1000000001")))).andReturn();
    String body=res.getResponse().getContentAsString(); org.junit.jupiter.api.Assertions.assertTrue(body.contains("XXXXXX0001"));
-   org.junit.jupiter.api.Assertions.assertFalse(java.util.regex.Pattern.compile("(?<!\\\\d)\\\\d{10,16}(?!\\\\d)").matcher(body).find());
+   org.junit.jupiter.api.Assertions.assertFalse(java.util.regex.Pattern.compile("(?<!\\d)\\d{10,16}(?!\\d)").matcher(body).find());
    org.junit.jupiter.api.Assertions.assertTrue(body.contains("\"hops\":4")||body.contains("\"hops\" : 4")||body.contains("4"));
  }
  @Test void tieBreakEarlierT1() throws Exception{
