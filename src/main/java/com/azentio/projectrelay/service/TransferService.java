@@ -1,27 +1,97 @@
 package com.azentio.projectrelay.service;
-import com.azentio.projectrelay.config.LayeringProperties;import com.azentio.projectrelay.domain.*;import com.azentio.projectrelay.dto.TransferRequest;import com.azentio.projectrelay.repo.*;import com.azentio.projectrelay.util.Masking;import org.springframework.stereotype.Service;import org.springframework.transaction.annotation.Transactional;
-import java.math.*;import java.time.OffsetDateTime;import java.util.*;
-@Service public class TransferService{
- private final TransferRepository transfers; private final AlertRepository alerts; private final ChainDetector detector; private final LayeringProperties cfg;
- public TransferService(TransferRepository t,AlertRepository a,ChainDetector d,LayeringProperties c){transfers=t;alerts=a;detector=d;cfg=c;}
- public record Decision(String transferId,String decision,Long alertId){}
- @Transactional public Decision ingest(TransferRequest req){
-   Optional<Transfer> ex=transfers.findById(req.transferId());
-   if(ex.isPresent()){ Optional<Alert> a=findAlertContaining(req.transferId()); return new Decision(req.transferId(), a.isPresent()?"ALERT":"CLEAR", a.map(x->x.alertId).orElse(null)); }
-   Transfer t=new Transfer(req.transferId(),req.fromAccount(),req.toAccount(),req.amount().setScale(2,RoundingMode.HALF_UP),req.occurredAt());
-   transfers.save(t);
-   // inbound lookup via SQL bounded by window
-   var chain=detector.findBest(t, acct->transfers.findInbound(acct,t.occurredAt,t.occurredAt.minus(cfg.window())));
-   if(chain.isEmpty()) return new Decision(req.transferId(),"CLEAR",null);
-   var c=chain.get(); List<String> ids=c.transfers().stream().map(x->x.transferId).toList();
-   // extension check: existing OPEN alert whose chain is strict prefix/subsequence? spec: new chain contains every transfer of existing OPEN alert
-   for(Alert old: alerts.findByStatusOrderByUpdatedAtDesc("OPEN")){
-     if(new HashSet<>(ids).containsAll(old.chainIds())){
-        old.hops=ids.size(); old.lastAmount=c.transfers().get(ids.size()-1).amount; old.endToEndRetention=c.e2e(); old.endAt=c.transfers().get(ids.size()-1).occurredAt; old.updatedAt=OffsetDateTime.now(); old.setChainIds(ids); alerts.save(old); return new Decision(req.transferId(),"ALERT",old.alertId);
-     }
-   }
-   Alert a=new Alert(); a.hops=ids.size(); a.firstAmount=c.transfers().get(0).amount; a.lastAmount=c.transfers().get(ids.size()-1).amount; a.endToEndRetention=c.e2e(); a.startAt=c.transfers().get(0).occurredAt; a.endAt=c.transfers().get(ids.size()-1).occurredAt; a.status="OPEN"; a.createdAt=OffsetDateTime.now(); a.updatedAt=a.createdAt; a.setChainIds(ids); alerts.save(a);
-   return new Decision(req.transferId(),"ALERT",a.alertId);
- }
- private Optional<Alert> findAlertContaining(String tid){ return alerts.findAll().stream().filter(a->a.chainIds().contains(tid)).findFirst(); }
+
+import com.azentio.projectrelay.domain.Alert;
+import com.azentio.projectrelay.domain.Transfer;
+import com.azentio.projectrelay.dto.TransferRequest;
+import com.azentio.projectrelay.repo.AlertRepository;
+import com.azentio.projectrelay.repo.TransferRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.RoundingMode;
+import java.time.OffsetDateTime;
+import java.util.*;
+
+@Service
+public class TransferService {
+    private final TransferRepository transfers;
+    private final AlertRepository alerts;
+    private final ChainDetector detector;
+    private final InboundEdgeStore edgeStore;
+
+    @Autowired
+    public TransferService(TransferRepository transfers, AlertRepository alerts,
+                           ChainDetector detector, InboundEdgeStore edgeStore) {
+        this.transfers = transfers;
+        this.alerts = alerts;
+        this.detector = detector;
+        this.edgeStore = edgeStore;
+    }
+
+    public record Decision(String transferId, String decision, Long alertId, boolean duplicate) {
+        public Decision(String transferId, String decision, Long alertId) {
+            this(transferId, decision, alertId, false);
+        }
+    }
+
+    @Transactional
+    public Decision ingest(TransferRequest req) {
+        Optional<Transfer> existing = transfers.findById(req.transferId());
+        if (existing.isPresent()) {
+            Optional<Alert> priorAlert = findAlertContaining(req.transferId());
+            return new Decision(req.transferId(), priorAlert.isPresent() ? "ALERT" : "CLEAR",
+                    priorAlert.map(a -> a.alertId).orElse(null), true);
+        }
+
+        Transfer transfer = new Transfer(req.transferId(), req.fromAccount(), req.toAccount(),
+                req.amount().setScale(2, RoundingMode.UNNECESSARY), req.occurredAt());
+        transfers.save(transfer);
+
+        // Keep the configured hot edge store in sync with the SQL source of truth.
+        edgeStore.add(transfer);
+        Optional<ChainDetector.Chain> detected = detector.findBest(transfer,
+                account -> edgeStore.inbound(account, transfer.occurredAt,
+                        transfer.occurredAt.minus(java.time.Duration.ofHours(2))));
+
+        if (detected.isEmpty()) return new Decision(req.transferId(), "CLEAR", null);
+
+        ChainDetector.Chain chain = detected.get();
+        List<Transfer> chainTransfers = chain.transfers();
+        List<String> ids = chainTransfers.stream().map(t -> t.transferId).toList();
+
+        // Extend only an OPEN alert whose complete existing sequence is contained in the new one.
+        for (Alert old : alerts.findByStatusOrderByUpdatedAtDesc("OPEN")) {
+            if (ids.containsAll(old.chainIds())) {
+                old.hops = ids.size();
+                old.lastAmount = chainTransfers.get(chainTransfers.size() - 1).amount;
+                old.endToEndRetention = chain.e2e();
+                old.endAt = chainTransfers.get(chainTransfers.size() - 1).occurredAt;
+                old.updatedAt = OffsetDateTime.now();
+                old.setChainIds(ids);
+                alerts.save(old);
+                return new Decision(req.transferId(), "ALERT", old.alertId);
+            }
+        }
+
+        Alert alert = new Alert();
+        alert.hops = ids.size();
+        alert.firstAmount = chainTransfers.get(0).amount;
+        alert.lastAmount = chainTransfers.get(chainTransfers.size() - 1).amount;
+        alert.endToEndRetention = chain.e2e();
+        alert.startAt = chainTransfers.get(0).occurredAt;
+        alert.endAt = chainTransfers.get(chainTransfers.size() - 1).occurredAt;
+        alert.status = "OPEN";
+        alert.createdAt = OffsetDateTime.now();
+        alert.updatedAt = alert.createdAt;
+        alert.setChainIds(ids);
+        alerts.save(alert);
+        return new Decision(req.transferId(), "ALERT", alert.alertId);
+    }
+
+    private Optional<Alert> findAlertContaining(String transferId) {
+        return alerts.findAll().stream()
+                .filter(alert -> alert.chainIds().contains(transferId))
+                .findFirst();
+    }
 }
