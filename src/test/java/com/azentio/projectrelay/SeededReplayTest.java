@@ -65,9 +65,10 @@ class SeededReplayTest {
             if (ids.stream().anyMatch(generatedIds::contains)) detectedFromDataset.add(List.copyOf(ids));
         }
 
-        long truePositives = detectedFromDataset.stream().filter(expected::contains).count();
+        long truePositives = expected.stream()
+                .filter(chain -> java.util.Collections.frequency(detectedFromDataset, chain) == 1).count();
         long falsePositives = detectedFromDataset.size() - truePositives;
-        long falseNegatives = expected.stream().filter(chain -> !detectedFromDataset.contains(chain)).count();
+        long falseNegatives = expected.size() - truePositives;
         double precision = detectedFromDataset.isEmpty() ? 1.0 : (double) truePositives / detectedFromDataset.size();
         double recall = (double) truePositives / expected.size();
         System.out.printf("Seeded replay: TP=%d FP=%d FN=%d precision=%.2f%% recall=%.2f%%%n",
