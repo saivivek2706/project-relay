@@ -30,6 +30,6 @@ public class InboundEdgeStoreWarmup implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         if ("sql".equalsIgnoreCase(cfg.store())) return;
         OffsetDateTime cutoff = OffsetDateTime.now().minus(cfg.window());
-        transfers.findByOccurredAtAfterOrderByOccurredAtAsc(cutoff).forEach(edgeStore::add);
+        transfers.findByOccurredAtGreaterThanEqualOrderByOccurredAtAsc(cutoff).forEach(edgeStore::add);
     }
 }
