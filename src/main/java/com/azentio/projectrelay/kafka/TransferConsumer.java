@@ -2,7 +2,7 @@ package com.azentio.projectrelay.kafka;
 import com.azentio.projectrelay.dto.TransferRequest;import com.azentio.projectrelay.service.TransferService;import com.fasterxml.jackson.databind.ObjectMapper;import jakarta.validation.*;import org.apache.kafka.clients.consumer.ConsumerRecord;import org.apache.kafka.clients.producer.ProducerRecord;import org.slf4j.*;import org.springframework.kafka.annotation.KafkaListener;import org.springframework.kafka.core.KafkaTemplate;import org.springframework.kafka.support.Acknowledgment;import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;import java.util.Set;
 import java.util.concurrent.TimeUnit;
-@Component @org.springframework.boot.autoconfigure.condition.ConditionalOnBean(org.springframework.kafka.core.KafkaTemplate.class) public class TransferConsumer{
+@Component public class TransferConsumer{
  private static final Logger log=LoggerFactory.getLogger(TransferConsumer.class);
  private final TransferService svc; private final KafkaTemplate<String,String> kafka; private final ObjectMapper mapper; private final Validator validator;
  public TransferConsumer(TransferService s,KafkaTemplate<String,String> k,ObjectMapper m,Validator v){svc=s;kafka=k;mapper=m;validator=v;}
