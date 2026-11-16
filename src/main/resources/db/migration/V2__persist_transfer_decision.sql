@@ -1,0 +1,2 @@
+ALTER TABLE transfers ADD COLUMN decision VARCHAR(10) NOT NULL DEFAULT 'CLEAR';
+ALTER TABLE transfers ADD COLUMN alert_id BIGINT REFERENCES alerts(alert_id);
