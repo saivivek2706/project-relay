@@ -1,11 +1,11 @@
 package com.azentio.projectrelay;
-import org.junit.jupiter.api.Test;import org.springframework.beans.factory.annotation.Autowired;import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;import org.springframework.boot.test.context.SpringBootTest;import org.springframework.http.MediaType;import org.springframework.test.web.servlet.MockMvc;
+import org.junit.jupiter.api.Test;import org.springframework.beans.factory.annotation.Autowired;import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;import org.springframework.boot.test.context.SpringBootTest;import org.springframework.test.context.ActiveProfiles;import org.springframework.http.MediaType;import org.springframework.test.web.servlet.MockMvc;
 import java.util.regex.Pattern;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;import static org.junit.jupiter.api.Assertions.*;
-@SpringBootTest @AutoConfigureMockMvc public class AlertWorkflowTest{
+@ActiveProfiles("test") @SpringBootTest @AutoConfigureMockMvc public class AlertWorkflowTest{
  @Autowired MockMvc mvc;
  String tx(String id,String f,String to,String amt,String at){return String.format("{\"transferId\":\"%s\",\"fromAccount\":\"%s\",\"toAccount\":\"%s\",\"amount\":%s,\"occurredAt\":\"%s\"}",id,f,to,amt,at);}
- String patch(String s,String note,String actor){return String.format("{\"status\":\"%s\",\"note\":\"%s\",\"actor\":\"%s\"}",s,note,actor);}
+ String patchBody(String s,String note,String actor){return String.format("{\"status\":\"%s\",\"note\":\"%s\",\"actor\":\"%s\"}",s,note,actor);}
  @Test void validTransitionWritesAuditAndInvalidReturns409AndNonOpenNotExtended() throws Exception{
    // build 3-hop alert
    mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("W1","6000000001","6000000002","200000.00","2026-05-01T09:00:00Z"))).andExpect(status().isCreated());
@@ -13,16 +13,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
    var r=mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("W3","6000000003","6000000004","188000.00","2026-05-01T09:10:00Z"))).andExpect(status().isCreated()).andReturn();
    String body=r.getResponse().getContentAsString(); long alertId=Long.parseLong(body.replaceAll(".*\"alertId\":(\\d+).*","$1"));
    // invalid: OPEN -> ESCALATED
-   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patch("ESCALATED","skip","analyst1"))).andExpect(status().isConflict());
+   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patchBody("ESCALATED","skip","analyst1"))).andExpect(status().isConflict());
    // valid: OPEN -> INVESTIGATING
-   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patch("INVESTIGATING","looking into it","analyst1"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("INVESTIGATING"));
+   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patchBody("INVESTIGATING","looking into account 6100000001","analyst1"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("INVESTIGATING"));
    // audit row
    var audit=mvc.perform(get("/api/alerts/"+alertId+"/audit")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-   assertTrue(audit.contains("INVESTIGATING")); assertTrue(audit.contains("analyst1")); assertTrue(audit.contains("looking into it"));
+   assertTrue(audit.contains("INVESTIGATING")); assertTrue(audit.contains("analyst1")); assertTrue(audit.contains("looking into account XXXXXX0001"));
    // valid: INVESTIGATING -> FALSE_POSITIVE
-   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patch("FALSE_POSITIVE","benign","analyst1"))).andExpect(status().isOk());
+   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patchBody("FALSE_POSITIVE","benign","analyst1"))).andExpect(status().isOk());
    // invalid: FALSE_POSITIVE -> INVESTIGATING
-   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patch("INVESTIGATING","reopen","analyst1"))).andExpect(status().isConflict());
+   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patchBody("INVESTIGATING","reopen","analyst1"))).andExpect(status().isConflict());
    // non-OPEN not extended: 4th hop should create a NEW alert, not extend this one
    var r2=mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("W4","6000000004","6000000005","182000.00","2026-05-01T09:15:00Z"))).andExpect(status().isCreated()).andReturn();
    long newId=Long.parseLong(r2.getResponse().getContentAsString().replaceAll(".*\"alertId\":(\\d+).*","$1"));
@@ -40,8 +40,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
    String audit=mvc.perform(get("/api/alerts/"+alertId+"/audit")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
    Pattern full=Pattern.compile("(?<!\\d)\\d{10,16}(?!\\d)");
    // detail contains amounts like 200000.00 (6 digits) - fine; check full account numbers absent
-   assertFalse(detail.contains("6100000001")); assertFalse(detail.contains("6100000004"));
-   assertFalse(audit.contains("6100000001"));
+   assertFalse(full.matcher(detail).find(), "alert detail must not contain any full account number");
+   assertFalse(full.matcher(audit).find(), "audit JSON must not contain any full account number");
    assertTrue(detail.contains("XXXXXX0001"));
    // hops fields present
    assertTrue(detail.contains("gapMinutes")); assertTrue(detail.contains("hopRetention"));

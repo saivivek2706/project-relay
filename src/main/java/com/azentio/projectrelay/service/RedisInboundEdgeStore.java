@@ -1,25 +1,88 @@
 package com.azentio.projectrelay.service;
-import com.azentio.projectrelay.config.LayeringProperties;import com.azentio.projectrelay.domain.Transfer;import org.springframework.data.redis.core.StringRedisTemplate;import org.springframework.stereotype.Component;
-import java.math.BigDecimal;import java.time.*;import java.util.*;
-/** Redis: ZSET per destination account, score = occurredAt epoch millis, member = transferId|from|amount|epoch.
- *  Key: relay:inbound:{toAccount}  TTL: window + max-hop-gap + 5m slack (2h35m by default).
- *  On every add: ZADD, ZREMRANGEBYSCORE below (now-window), EXPIRE. Lookup: ZREVRANGEBYSCORE in (after, before). */
-@Component public class RedisInboundEdgeStore implements InboundEdgeStore{
- private final StringRedisTemplate redis; private final LayeringProperties cfg;
- public RedisInboundEdgeStore(StringRedisTemplate r, LayeringProperties c){redis=r;cfg=c;}
- static String key(String acct){ return "relay:inbound:"+acct; }
- long ttlSeconds(){ return cfg.window().plus(cfg.maxHopGap()).plus(Duration.ofMinutes(5)).getSeconds(); }
- public void add(Transfer t){
-   String member=String.join("|",t.transferId,t.fromAccount,t.amount.toPlainString(),String.valueOf(t.occurredAt.toInstant().toEpochMilli()));
-   String k=key(t.toAccount); double score=t.occurredAt.toInstant().toEpochMilli();
-   redis.opsForZSet().add(k,member,score);
-   redis.opsForZSet().removeRangeByScore(k,0, t.occurredAt.minus(cfg.window()).toInstant().toEpochMilli()-1);
-   redis.expire(k,Duration.ofSeconds(ttlSeconds()));
- }
- public List<Transfer> inbound(String acct, OffsetDateTime before, OffsetDateTime after){
-   var members=redis.opsForZSet().reverseRangeByScore(key(acct), after.toInstant().toEpochMilli(), before.toInstant().toEpochMilli()-1);
-   List<Transfer> out=new ArrayList<>(); if(members==null) return out;
-   for(String m: members){ String[] p=m.split("\\|"); if(p.length!=4) continue; out.add(new Transfer(p[0],p[1],acct,new BigDecimal(p[2]),OffsetDateTime.ofInstant(Instant.ofEpochMilli(Long.parseLong(p[3])),ZoneOffset.UTC))); }
-   return out;
- }
+
+import com.azentio.projectrelay.config.LayeringProperties;
+import com.azentio.projectrelay.domain.Transfer;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Comparator;
+import java.util.List;
+
+/** Redis sorted set per destination account, scored by event-time epoch milliseconds. */
+@Component
+public class RedisInboundEdgeStore implements InboundEdgeStore {
+    private final StringRedisTemplate redis;
+    private final LayeringProperties cfg;
+
+    public RedisInboundEdgeStore(StringRedisTemplate redis, LayeringProperties cfg) {
+        this.redis = redis;
+        this.cfg = cfg;
+    }
+
+    static String key(String account) {
+        return "relay:inbound:" + account;
+    }
+
+    long ttlSeconds() {
+        return cfg.window().plus(cfg.maxHopGap()).plus(Duration.ofMinutes(5)).getSeconds();
+    }
+
+    @Override
+    public void add(Transfer transfer) {
+        String encodedId = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(transfer.transferId.getBytes(StandardCharsets.UTF_8));
+        // Keep the full ISO timestamp in the member; the sorted-set score is millisecond precision.
+        String member = String.join("|", encodedId, transfer.fromAccount,
+                transfer.amount.toPlainString(), transfer.occurredAt.toString());
+        String key = key(transfer.toAccount);
+        long score = transfer.occurredAt.toInstant().toEpochMilli();
+
+        redis.opsForZSet().add(key, member, score);
+        OffsetDateTime cutoffAt = transfer.occurredAt.minus(cfg.window());
+        long cutoff = cutoffAt.toInstant().toEpochMilli();
+        redis.opsForZSet().removeRangeByScore(key, 0, cutoff - 1);
+        // The score has millisecond precision; inspect the boundary millisecond to trim nanoseconds exactly.
+        var boundaryMembers = redis.opsForZSet().rangeByScore(key, cutoff, cutoff);
+        if (boundaryMembers != null) {
+            for (String boundaryMember : boundaryMembers) {
+                String[] fields = boundaryMember.split("\\|", 4);
+                if (fields.length == 4 && OffsetDateTime.parse(fields[3]).isBefore(cutoffAt)) {
+                    redis.opsForZSet().remove(key, boundaryMember);
+                }
+            }
+        }
+        redis.expire(key, Duration.ofSeconds(ttlSeconds()));
+    }
+
+    @Override
+    public List<Transfer> inbound(String account, OffsetDateTime before, OffsetDateTime after) {
+        var members = redis.opsForZSet().reverseRangeByScore(key(account),
+                after.toInstant().toEpochMilli(), before.toInstant().toEpochMilli());
+        List<Transfer> result = new ArrayList<>();
+        if (members == null) return result;
+
+        for (String member : members) {
+            String[] fields = member.split("\\|", 4);
+            if (fields.length != 4) continue;
+
+            OffsetDateTime occurredAt = OffsetDateTime.parse(fields[3]);
+            // Filter at full timestamp precision after the millisecond score range lookup.
+            if (!occurredAt.isBefore(before) || occurredAt.isBefore(after)) continue;
+
+            String transferId = new String(Base64.getUrlDecoder().decode(fields[0]),
+                    StandardCharsets.UTF_8);
+            result.add(new Transfer(transferId, fields[1], account,
+                    new BigDecimal(fields[2]), occurredAt));
+        }
+
+        result.sort(Comparator.comparing((Transfer t) -> t.occurredAt).reversed()
+                .thenComparing(t -> t.transferId));
+        return result;
+    }
 }

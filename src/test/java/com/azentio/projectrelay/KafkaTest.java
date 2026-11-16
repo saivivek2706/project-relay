@@ -1,9 +1,9 @@
 package com.azentio.projectrelay;
-import org.apache.kafka.clients.consumer.ConsumerConfig;import org.apache.kafka.clients.consumer.KafkaConsumer;import org.apache.kafka.clients.producer.*;import org.apache.kafka.common.serialization.StringDeserializer;import org.apache.kafka.common.serialization.StringSerializer;import org.junit.jupiter.api.Test;import org.springframework.beans.factory.annotation.Autowired;import org.springframework.boot.test.context.SpringBootTest;import org.springframework.kafka.test.EmbeddedKafkaBroker;import org.springframework.kafka.test.context.EmbeddedKafka;import org.springframework.test.annotation.DirtiesContext;
+import org.apache.kafka.clients.consumer.ConsumerConfig;import org.apache.kafka.clients.consumer.KafkaConsumer;import org.apache.kafka.clients.producer.*;import org.apache.kafka.common.serialization.StringDeserializer;import org.apache.kafka.common.serialization.StringSerializer;import org.junit.jupiter.api.Test;import org.springframework.beans.factory.annotation.Autowired;import org.springframework.boot.test.context.SpringBootTest;import org.springframework.test.context.ActiveProfiles;import org.springframework.kafka.test.EmbeddedKafkaBroker;import org.springframework.kafka.test.context.EmbeddedKafka;import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestPropertySource;import org.springframework.test.web.servlet.MockMvc;import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import java.time.Duration;import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-@SpringBootTest(properties={"spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}","spring.autoconfigure.exclude="}) @AutoConfigureMockMvc @EmbeddedKafka(partitions=1, topics={"transfers.v1","transfers.v1.dlq"}) @DirtiesContext public class KafkaTest{
+@ActiveProfiles("test") @SpringBootTest(properties={"spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}","spring.autoconfigure.exclude=","spring.kafka.listener.auto-startup=true","spring.datasource.url=jdbc:h2:mem:kafka;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE"}) @AutoConfigureMockMvc @EmbeddedKafka(partitions=1, topics={"transfers.v1","transfers.v1.dlq"}) @DirtiesContext public class KafkaTest{
  @Autowired EmbeddedKafkaBroker broker; @Autowired MockMvc mvc;
  @Test void plantedMalformedDuplicate() throws Exception{
    var props=new Properties(); props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,broker.getBrokersAsString()); props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,StringSerializer.class); props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,StringSerializer.class);
@@ -19,8 +19,10 @@ import static org.junit.jupiter.api.Assertions.*;import static org.springframewo
    // wait for alert
    String body=null; for(int i=0;i<30;i++){ Thread.sleep(500); var r=mvc.perform(get("/api/alerts?status=OPEN")).andExpect(status().isOk()).andReturn(); body=r.getResponse().getContentAsString(); if(body.contains("K3")||body.contains("188000")) break; }
    assertNotNull(body); assertTrue(body.contains("XXXXXX"), "masked");
+   assertEquals(1, new com.fasterxml.jackson.databind.ObjectMapper().readTree(body).path("totalElements").asInt(),
+           "the duplicate event must not create a second alert");
    // DLQ has malformed with header
    var cprops=new Properties(); cprops.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,broker.getBrokersAsString()); cprops.put(ConsumerConfig.GROUP_ID_CONFIG,"dlq-check-"+UUID.randomUUID()); cprops.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,"earliest"); cprops.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,StringDeserializer.class); cprops.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,StringDeserializer.class);
-   try(var cons=new KafkaConsumer<String,String>(cprops)){ cons.subscribe(List.of("transfers.v1.dlq")); var recs=cons.poll(Duration.ofSeconds(10)); assertTrue(recs.count()>=1); assertNotNull(recs.iterator().next().headers().lastHeader("x-error-reason")); }
+   try(var cons=new KafkaConsumer<String,String>(cprops)){ cons.subscribe(List.of("transfers.v1.dlq")); var recs=cons.poll(Duration.ofSeconds(10)); assertTrue(recs.count()>=1); boolean foundBad=false; for (var record : recs.records("transfers.v1.dlq")) { if (record.value().equals("not-json{")) { foundBad=true; assertNotNull(record.headers().lastHeader("x-error-reason")); } } assertTrue(foundBad, "malformed event must be present in the DLQ"); }
  }
 }

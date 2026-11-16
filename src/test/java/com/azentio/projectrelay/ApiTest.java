@@ -1,7 +1,7 @@
 package com.azentio.projectrelay;
-import org.junit.jupiter.api.Test;import org.springframework.beans.factory.annotation.Autowired;import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;import org.springframework.boot.test.context.SpringBootTest;import org.springframework.http.MediaType;import org.springframework.test.web.servlet.MockMvc;
+import org.junit.jupiter.api.Test;import org.springframework.beans.factory.annotation.Autowired;import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;import org.springframework.boot.test.context.SpringBootTest;import org.springframework.test.context.ActiveProfiles;import org.springframework.http.MediaType;import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-@SpringBootTest @AutoConfigureMockMvc public class ApiTest{
+@ActiveProfiles("test") @SpringBootTest @AutoConfigureMockMvc public class ApiTest{
  @Autowired MockMvc mvc;
  String tx(String id,String f,String to,String amt,String at){return String.format("{\"transferId\":\"%s\",\"fromAccount\":\"%s\",\"toAccount\":\"%s\",\"amount\":%s,\"occurredAt\":\"%s\"}",id,f,to,amt,at);}
  @Test void validationAndIdempotencyAndExtensionAndMasking() throws Exception{
@@ -11,13 +11,21 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
    String base="2026-02-01T09:00:00Z";
    mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("A1","1000000001","1000000002","200000.00","2026-02-01T09:00:00Z"))).andExpect(status().isCreated()).andExpect(jsonPath("$.decision").value("CLEAR"));
    mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("A2","1000000002","1000000003","194000.00","2026-02-01T09:05:00Z"))).andExpect(jsonPath("$.decision").value("CLEAR"));
-   mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("A3","1000000003","1000000004","188000.00","2026-02-01T09:10:00Z"))).andExpect(jsonPath("$.decision").value("ALERT"));
-   // idempotent re-post
-   mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("A3","1000000003","1000000004","188000.00","2026-02-01T09:10:00Z"))).andExpect(status().isOk()).andExpect(jsonPath("$.decision").value("ALERT"));
-   // extension to 4 hops
-   mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("A4","1000000004","1000000005","182000.00","2026-02-01T09:15:00Z"))).andExpect(jsonPath("$.decision").value("ALERT"));
+   var a3Result=mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("A3","1000000003","1000000004","188000.00","2026-02-01T09:10:00Z"))).andExpect(status().isCreated()).andExpect(jsonPath("$.decision").value("ALERT")).andReturn();
+   var mapper=new com.fasterxml.jackson.databind.ObjectMapper();
+   long originalAlertId=mapper.readTree(a3Result.getResponse().getContentAsString()).path("alertId").asLong();
+   // An earlier CLEAR response remains CLEAR even after a later hop completes the chain.
+   mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("A1","1000000001","1000000002","200000.00","2026-02-01T09:00:00Z"))).andExpect(status().isOk()).andExpect(jsonPath("$.decision").value("CLEAR"));
+   // Idempotent replay returns the original ALERT response.
+   mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("A3","1000000003","1000000004","188000.00","2026-02-01T09:10:00Z"))).andExpect(status().isOk()).andExpect(jsonPath("$.decision").value("ALERT")).andExpect(jsonPath("$.alertId").value(originalAlertId));
+   // The fourth qualifying transfer extends the existing alert rather than creating another.
+   var a4Result=mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("A4","1000000004","1000000005","182000.00","2026-02-01T09:15:00Z"))).andExpect(status().isCreated()).andExpect(jsonPath("$.decision").value("ALERT")).andReturn();
+   org.junit.jupiter.api.Assertions.assertEquals(originalAlertId,mapper.readTree(a4Result.getResponse().getContentAsString()).path("alertId").asLong());
+   var detail=mapper.readTree(mvc.perform(get("/api/alerts/"+originalAlertId)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+   org.junit.jupiter.api.Assertions.assertEquals(4,detail.path("hops").size());
    var res=mvc.perform(get("/api/alerts?status=OPEN")).andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("1000000001")))).andReturn();
    String body=res.getResponse().getContentAsString(); org.junit.jupiter.api.Assertions.assertTrue(body.contains("XXXXXX0001"));
+   org.junit.jupiter.api.Assertions.assertFalse(java.util.regex.Pattern.compile("(?<!\\d)\\d{10,16}(?!\\d)").matcher(body).find());
    org.junit.jupiter.api.Assertions.assertTrue(body.contains("\"hops\":4")||body.contains("\"hops\" : 4")||body.contains("4"));
  }
  @Test void tieBreakEarlierT1() throws Exception{

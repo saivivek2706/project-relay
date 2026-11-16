@@ -1,5 +1,6 @@
 package com.azentio.projectrelay.web;
 import com.azentio.projectrelay.service.AlertService;
+import com.azentio.projectrelay.util.Masking;
 import jakarta.validation.Valid;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -20,7 +21,7 @@ public class AlertStatusController {
       var m = new LinkedHashMap<String,Object>();
       m.put("auditId", au.auditId); m.put("alertId", au.alertId);
       m.put("fromStatus", au.fromStatus); m.put("toStatus", au.toStatus);
-      m.put("actor", au.actor); m.put("note", au.note); m.put("at", au.createdAt);
+      m.put("actor", Masking.maskSensitiveText(au.actor)); m.put("note", Masking.maskSensitiveText(au.note)); m.put("at", au.createdAt);
       out.add(m);
     }
     return out;
