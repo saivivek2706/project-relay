@@ -3,7 +3,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;import org.apache.kafka.
 import org.springframework.test.context.TestPropertySource;import org.springframework.test.web.servlet.MockMvc;import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import java.time.Duration;import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-@ActiveProfiles("test") @SpringBootTest(properties={"spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}","spring.autoconfigure.exclude="}) @AutoConfigureMockMvc @EmbeddedKafka(partitions=1, topics={"transfers.v1","transfers.v1.dlq"}) @DirtiesContext public class KafkaTest{
+@ActiveProfiles("test") @SpringBootTest(properties={"spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}","spring.autoconfigure.exclude=","spring.kafka.listener.auto-startup=true"}) @AutoConfigureMockMvc @EmbeddedKafka(partitions=1, topics={"transfers.v1","transfers.v1.dlq"}) @DirtiesContext public class KafkaTest{
  @Autowired EmbeddedKafkaBroker broker; @Autowired MockMvc mvc;
  @Test void plantedMalformedDuplicate() throws Exception{
    var props=new Properties(); props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,broker.getBrokersAsString()); props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,StringSerializer.class); props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,StringSerializer.class);
