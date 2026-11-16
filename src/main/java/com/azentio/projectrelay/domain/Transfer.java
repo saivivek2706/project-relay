@@ -23,6 +23,12 @@ public class Transfer {
     @Column(name = "occurred_at", nullable = false)
     public OffsetDateTime occurredAt;
 
+    @Column(nullable = false, length = 10)
+    public String decision = "CLEAR";
+
+    @Column(name = "alert_id")
+    public Long alertId;
+
     public Transfer() { }
 
     public Transfer(String id, String from, String to, BigDecimal amount, OffsetDateTime occurredAt) {
