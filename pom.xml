@@ -74,7 +74,7 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
-              <excludedGroups></excludedGroups>
+              <excludedGroups>none</excludedGroups>
               <groups>integration</groups>
             </configuration>
           </plugin>
