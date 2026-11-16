@@ -42,9 +42,8 @@ public class TransferService {
     public Decision ingest(TransferRequest req) {
         Optional<Transfer> existing = transfers.findById(req.transferId());
         if (existing.isPresent()) {
-            Optional<Alert> priorAlert = findAlertContaining(req.transferId());
-            return new Decision(req.transferId(), priorAlert.isPresent() ? "ALERT" : "CLEAR",
-                    priorAlert.map(a -> a.alertId).orElse(null), true);
+            return new Decision(req.transferId(), existing.get().decision,
+                    existing.get().alertId, true);
         }
 
         Transfer transfer = new Transfer(req.transferId(), req.fromAccount(), req.toAccount(),
@@ -73,6 +72,9 @@ public class TransferService {
                 old.updatedAt = OffsetDateTime.now();
                 old.setChainIds(ids);
                 alerts.save(old);
+                transfer.decision = "ALERT";
+                transfer.alertId = old.alertId;
+                transfers.save(transfer);
                 return new Decision(req.transferId(), "ALERT", old.alertId);
             }
         }
@@ -89,12 +91,10 @@ public class TransferService {
         alert.updatedAt = alert.createdAt;
         alert.setChainIds(ids);
         alerts.save(alert);
+        transfer.decision = "ALERT";
+        transfer.alertId = alert.alertId;
+        transfers.save(transfer);
         return new Decision(req.transferId(), "ALERT", alert.alertId);
     }
 
-    private Optional<Alert> findAlertContaining(String transferId) {
-        return alerts.findAll().stream()
-                .filter(alert -> alert.chainIds().contains(transferId))
-                .findFirst();
-    }
 }
