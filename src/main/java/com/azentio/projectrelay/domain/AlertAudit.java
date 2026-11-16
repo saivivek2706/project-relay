@@ -11,7 +11,7 @@ public class AlertAudit {
     @Column(name = "audit_id")
     public Long auditId;
 
-    @Column(name = "alert_id")
+    @Column(name = "alert_id", nullable = false)
     public Long alertId;
 
     @Column(name = "from_status", length = 20)
