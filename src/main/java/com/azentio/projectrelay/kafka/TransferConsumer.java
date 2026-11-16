@@ -6,7 +6,7 @@ import java.nio.charset.StandardCharsets;import java.util.Set;\nimport java.util
  private final TransferService svc; private final KafkaTemplate<String,String> kafka; private final ObjectMapper mapper; private final Validator validator;
  public TransferConsumer(TransferService s,KafkaTemplate<String,String> k,ObjectMapper m,Validator v){svc=s;kafka=k;mapper=m;validator=v;}
  @KafkaListener(topics="transfers.v1", groupId="relay")
- public void onMessage(ConsumerRecord<String,String> rec, Acknowledgment ack){
+ public void onMessage(ConsumerRecord<String,String> rec, Acknowledgment ack) throws Exception{
    try{
      TransferRequest req=mapper.readValue(rec.value(),TransferRequest.class);
      if (rec.key() == null || !rec.key().equals(req.fromAccount())) throw new IllegalArgumentException("Kafka key must equal fromAccount");
