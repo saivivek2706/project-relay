@@ -47,7 +47,7 @@
       <artifactId>testcontainers</artifactId>
       <scope>test</scope>
     </dependency>
-    <!-- Redis support (provides StringRedisTemplate and org.springframework.data.redis.core) -->
+    <!-- JUnit, Spring Test, MockMvc and Mockito support -->
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
   </dependencies>
   <build>
