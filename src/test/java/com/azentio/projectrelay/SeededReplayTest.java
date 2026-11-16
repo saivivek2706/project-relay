@@ -1,7 +1,7 @@
 package com.azentio.projectrelay;
-import com.azentio.projectrelay.generator.Generator;import org.junit.jupiter.api.Test;import org.springframework.beans.factory.annotation.Autowired;import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;import org.springframework.boot.test.context.SpringBootTest;import org.springframework.http.MediaType;import org.springframework.test.web.servlet.MockMvc;
+import com.azentio.projectrelay.generator.Generator;import org.junit.jupiter.api.Test;import org.springframework.beans.factory.annotation.Autowired;import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;import org.springframework.boot.test.context.SpringBootTest;import org.springframework.test.context.ActiveProfiles;import org.springframework.http.MediaType;import org.springframework.test.web.servlet.MockMvc;
 import java.nio.file.*;import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-@SpringBootTest @AutoConfigureMockMvc public class SeededReplayTest{
+@ActiveProfiles("test") @SpringBootTest @AutoConfigureMockMvc public class SeededReplayTest{
  @Autowired MockMvc mvc;
  @Test void replay() throws Exception{
    Generator.main(new String[]{"42","/tmp/seeded.jsonl","/tmp/labels.json"});
