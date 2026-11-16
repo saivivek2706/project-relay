@@ -1,8 +1,8 @@
 package com.azentio.projectrelay;
-import com.azentio.projectrelay.config.LayeringProperties;import com.azentio.projectrelay.domain.Transfer;import com.azentio.projectrelay.generator.Generator;import com.azentio.projectrelay.service.*;import org.junit.jupiter.api.Test;import org.springframework.beans.factory.annotation.Autowired;import org.springframework.boot.test.context.SpringBootTest;
+import com.azentio.projectrelay.config.LayeringProperties;import com.azentio.projectrelay.domain.Transfer;import com.azentio.projectrelay.generator.Generator;import com.azentio.projectrelay.service.*;import org.junit.jupiter.api.Test;import org.springframework.beans.factory.annotation.Autowired;import org.springframework.boot.test.context.SpringBootTest;import org.springframework.test.context.ActiveProfiles;
 import java.nio.file.*;import java.util.*;import com.fasterxml.jackson.databind.*;
 import static org.junit.jupiter.api.Assertions.*;
-@SpringBootTest public class ParityTest{
+@ActiveProfiles("test") @SpringBootTest public class ParityTest{
  @Autowired LayeringProperties cfg; @Autowired SqlInboundEdgeStore sql;
  @Test void storeAndSqlProduceSameChains() throws Exception{
    Generator.main(new String[]{"42","/tmp/seeded2.jsonl","/tmp/labels2.json"});
