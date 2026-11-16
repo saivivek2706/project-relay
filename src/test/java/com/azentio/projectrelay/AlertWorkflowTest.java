@@ -15,10 +15,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
    // invalid: OPEN -> ESCALATED
    mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patch("ESCALATED","skip","analyst1"))).andExpect(status().isConflict());
    // valid: OPEN -> INVESTIGATING
-   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patch("INVESTIGATING","looking into it","analyst1"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("INVESTIGATING"));
+   mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patch("INVESTIGATING","looking into account 6100000001","analyst1"))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("INVESTIGATING"));
    // audit row
    var audit=mvc.perform(get("/api/alerts/"+alertId+"/audit")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-   assertTrue(audit.contains("INVESTIGATING")); assertTrue(audit.contains("analyst1")); assertTrue(audit.contains("looking into it"));
+   assertTrue(audit.contains("INVESTIGATING")); assertTrue(audit.contains("analyst1")); assertTrue(audit.contains("looking into account XXXXXX0001"));
    // valid: INVESTIGATING -> FALSE_POSITIVE
    mvc.perform(patch("/api/alerts/"+alertId+"/status").contentType(MediaType.APPLICATION_JSON).content(patch("FALSE_POSITIVE","benign","analyst1"))).andExpect(status().isOk());
    // invalid: FALSE_POSITIVE -> INVESTIGATING
