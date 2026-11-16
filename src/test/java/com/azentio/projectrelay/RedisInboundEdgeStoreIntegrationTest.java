@@ -46,8 +46,10 @@ class RedisInboundEdgeStoreIntegrationTest {
                     new BigDecimal("200000.00"), now.minusHours(3)));
             store.add(new Transfer("RECENT", "2222222222", destination,
                     new BigDecimal("190000.00"), now));
+            store.add(new Transfer("AFTER-BOUND", "3333333333", destination,
+                    new BigDecimal("180000.00"), now.plusNanos(100)));
 
-            List<Transfer> inbound = store.inbound(destination, now.plusSeconds(1), now.minusHours(2));
+            List<Transfer> inbound = store.inbound(destination, now.plusNanos(50), now.minusHours(2));
             assertEquals(List.of("RECENT"), inbound.stream().map(t -> t.transferId).toList());
             Long ttl = template.getExpire("relay:inbound:" + destination, TimeUnit.SECONDS);
             assertNotNull(ttl);
