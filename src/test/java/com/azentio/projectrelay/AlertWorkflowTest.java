@@ -40,8 +40,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
    String audit=mvc.perform(get("/api/alerts/"+alertId+"/audit")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
    Pattern full=Pattern.compile("(?<!\\d)\\d{10,16}(?!\\d)");
    // detail contains amounts like 200000.00 (6 digits) - fine; check full account numbers absent
-   assertFalse(detail.contains("6100000001")); assertFalse(detail.contains("6100000004"));
-   assertFalse(audit.contains("6100000001"));
+   assertFalse(full.matcher(detail).find(), "alert detail must not contain any full account number");
+   assertFalse(full.matcher(audit).find(), "audit JSON must not contain any full account number");
    assertTrue(detail.contains("XXXXXX0001"));
    // hops fields present
    assertTrue(detail.contains("gapMinutes")); assertTrue(detail.contains("hopRetention"));
