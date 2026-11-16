@@ -12,6 +12,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
    mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("A1","1000000001","1000000002","200000.00","2026-02-01T09:00:00Z"))).andExpect(status().isCreated()).andExpect(jsonPath("$.decision").value("CLEAR"));
    mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("A2","1000000002","1000000003","194000.00","2026-02-01T09:05:00Z"))).andExpect(jsonPath("$.decision").value("CLEAR"));
    mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("A3","1000000003","1000000004","188000.00","2026-02-01T09:10:00Z"))).andExpect(jsonPath("$.decision").value("ALERT"));
+   // An earlier CLEAR response remains CLEAR even after a later hop completes the chain.
+   mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("A1","1000000001","1000000002","200000.00","2026-02-01T09:00:00Z"))).andExpect(status().isOk()).andExpect(jsonPath("$.decision").value("CLEAR"));
    // idempotent re-post
    mvc.perform(post("/api/transfers").contentType(MediaType.APPLICATION_JSON).content(tx("A3","1000000003","1000000004","188000.00","2026-02-01T09:10:00Z"))).andExpect(status().isOk()).andExpect(jsonPath("$.decision").value("ALERT"));
    // extension to 4 hops
