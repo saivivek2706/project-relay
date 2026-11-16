@@ -44,8 +44,19 @@ public class RedisInboundEdgeStore implements InboundEdgeStore {
         long score = transfer.occurredAt.toInstant().toEpochMilli();
 
         redis.opsForZSet().add(key, member, score);
-        long cutoff = transfer.occurredAt.minus(cfg.window()).toInstant().toEpochMilli();
+        OffsetDateTime cutoffAt = transfer.occurredAt.minus(cfg.window());
+        long cutoff = cutoffAt.toInstant().toEpochMilli();
         redis.opsForZSet().removeRangeByScore(key, 0, cutoff - 1);
+        // The score has millisecond precision; inspect the boundary millisecond to trim nanoseconds exactly.
+        var boundaryMembers = redis.opsForZSet().rangeByScore(key, cutoff, cutoff);
+        if (boundaryMembers != null) {
+            for (String boundaryMember : boundaryMembers) {
+                String[] fields = boundaryMember.split("\\|", 4);
+                if (fields.length == 4 && OffsetDateTime.parse(fields[3]).isBefore(cutoffAt)) {
+                    redis.opsForZSet().remove(key, boundaryMember);
+                }
+            }
+        }
         redis.expire(key, Duration.ofSeconds(ttlSeconds()));
     }
 
