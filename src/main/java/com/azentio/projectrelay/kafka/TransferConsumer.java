@@ -1,6 +1,6 @@
 package com.azentio.projectrelay.kafka;
 import com.azentio.projectrelay.dto.TransferRequest;import com.azentio.projectrelay.service.TransferService;import com.fasterxml.jackson.databind.ObjectMapper;import jakarta.validation.*;import org.apache.kafka.clients.consumer.ConsumerRecord;import org.apache.kafka.clients.producer.ProducerRecord;import org.slf4j.*;import org.springframework.kafka.annotation.KafkaListener;import org.springframework.kafka.core.KafkaTemplate;import org.springframework.kafka.support.Acknowledgment;import org.springframework.stereotype.Component;
-import java.nio.charset.StandardCharsets;import java.util.Set;
+import java.nio.charset.StandardCharsets;import java.util.Set;\nimport java.util.concurrent.TimeUnit;
 @Component @org.springframework.boot.autoconfigure.condition.ConditionalOnBean(org.springframework.kafka.core.KafkaTemplate.class) public class TransferConsumer{
  private static final Logger log=LoggerFactory.getLogger(TransferConsumer.class);
  private final TransferService svc; private final KafkaTemplate<String,String> kafka; private final ObjectMapper mapper; private final Validator validator;
@@ -12,11 +12,11 @@ import java.nio.charset.StandardCharsets;import java.util.Set;
      Set<ConstraintViolation<TransferRequest>> v=validator.validate(req); if(!v.isEmpty()) throw new IllegalArgumentException("validation: "+v);
      svc.ingest(req); ack.acknowledge();
    }catch(Exception e){
-     log.warn("transfer event rejected, sending to DLQ: {}",e.getMessage());
+     log.warn("Invalid transfer event rejected; publishing sanitized reason to DLQ");
      ProducerRecord<String,String> dlq=new ProducerRecord<>("transfers.v1.dlq",rec.key(),rec.value());
-     dlq.headers().add("x-error-reason", (e.getMessage()==null?"invalid event":e.getMessage()).getBytes(StandardCharsets.UTF_8));
+     dlq.headers().add("x-error-reason", "invalid transfer event".getBytes(StandardCharsets.UTF_8));
      dlq.headers().add("x-original-topic","transfers.v1".getBytes(StandardCharsets.UTF_8));
-     kafka.send(dlq); ack.acknowledge();
+     kafka.send(dlq).get(10, TimeUnit.SECONDS); ack.acknowledge();
    }
  }
 }
