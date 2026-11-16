@@ -13,7 +13,10 @@ describe('ChainView', () => {
     const { container } = render(<ChainView alert={alert} />);
     expect(screen.getAllByTestId('chain-arrow')).toHaveLength(4);
     expect(container.textContent).toContain('XXXXXX0001');
-    expect(container.textContent).not.toMatch(/\d{10,16}/);
+    const accounts = Array.from(container.querySelectorAll('[data-testid="account-node"]')).map(node => node.textContent ?? '');
+    expect(accounts).toHaveLength(5);
+    expect(accounts.every(account => /^XXXXXX\d{4}$/.test(account))).toBe(true);
+    expect(accounts.join(' ')).not.toMatch(/\d{10,16}/);
     expect(container.textContent).toContain('Total span: 15 minutes');
     expect(container.textContent).toContain('94.0%');
   });
