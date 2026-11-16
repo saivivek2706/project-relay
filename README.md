@@ -98,7 +98,7 @@ All monetary values are `BigDecimal` with scale 2. Ratios are calculated to scal
 
 The backwards-lookup index is `(to_account, occurred_at)`: the equality predicate on `to_account` comes first, followed by the event-time range on `occurred_at`. The separate `from_account, occurred_at` index supports source-account queries.
 
-Redis key schema: `relay:inbound:{toAccount}`. Each key is a sorted set scored by `occurredAt` epoch milliseconds; members contain transfer ID, source account, amount and event timestamp. Entries older than the configured event-time window are trimmed on insert. Key TTL is `window + max-hop-gap + 5 minutes` (2 hours 35 minutes with defaults).
+Redis key schema: `relay:inbound:{toAccount}`. Each key is a sorted set scored by `occurredAt` epoch milliseconds; members contain a URL-safe Base64 transfer ID, source account, amount and event timestamp. Entries older than the configured event-time window are trimmed on insert. Key TTL is `window + max-hop-gap + 5 minutes` (2 hours 35 minutes with defaults).
 
 ## Kafka ordering assumption
 
@@ -123,7 +123,7 @@ mvn test
 
 Docker-backed Redis TTL/trimming coverage is tagged as an integration test and is excluded from the plain run; execute it separately with `mvn -Pintegration test` (Docker required).
 
-The Spring tests activate the `test` profile and use H2. Kafka behavior is tested with Spring's embedded Kafka broker. The parity test compares the in-memory edge-store path against the SQL reference path; the seeded replay test checks the labelled chains and excludes decoys.
+The Spring tests activate the `test` profile and use H2. Kafka behavior is tested with Spring's embedded Kafka broker. The parity test compares the in-memory edge-store path against the SQL reference path; the seeded replay test asserts exactly one alert per labelled chain, zero decoy/background alerts, and prints full-dataset precision and recall.
 
 Run frontend tests and build:
 
@@ -155,4 +155,4 @@ The chain view is implemented and has a React Testing Library test. Capture a sc
 - Measure and record Redis-mode load latency on the target machine.
 - Capture and commit the required UI screenshot.
 - Run the full Maven and npm test/build commands in a clean environment and record the results.
-- Add a production-grade ordering/reconciliation strategy for cross-partition chain hops and a Redis integration test with a real Redis instance.
+- Add a production-grade ordering/reconciliation strategy for cross-partition chain hops; run the tagged Redis TTL/trimming integration test with Docker.
