@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;import java.util.Set;\nimport java.util
  public void onMessage(ConsumerRecord<String,String> rec, Acknowledgment ack){
    try{
      TransferRequest req=mapper.readValue(rec.value(),TransferRequest.class);
+     if (rec.key() == null || !rec.key().equals(req.fromAccount())) throw new IllegalArgumentException("Kafka key must equal fromAccount");
      Set<ConstraintViolation<TransferRequest>> v=validator.validate(req); if(!v.isEmpty()) throw new IllegalArgumentException("validation: "+v);
      svc.ingest(req); ack.acknowledge();
    }catch(Exception e){
