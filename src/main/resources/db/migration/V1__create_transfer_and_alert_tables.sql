@@ -27,3 +27,7 @@ CREATE TABLE alert_audit (
  from_status VARCHAR(20), to_status VARCHAR(20) NOT NULL,
  actor VARCHAR(100), note TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Persist the original ingest decision so an idempotent replay is stable even after later chain extensions.
+ALTER TABLE transfers ADD COLUMN decision VARCHAR(10) NOT NULL DEFAULT 'CLEAR';
+ALTER TABLE transfers ADD COLUMN alert_id BIGINT REFERENCES alerts(alert_id);
