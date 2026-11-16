@@ -66,6 +66,8 @@ public class TransferService {
         for (Alert old : alerts.findByStatusOrderByUpdatedAtDesc("OPEN")) {
             if (ids.containsAll(old.chainIds())) {
                 old.hops = ids.size();
+                old.firstAmount = chainTransfers.get(0).amount;
+                old.startAt = chainTransfers.get(0).occurredAt;
                 old.lastAmount = chainTransfers.get(chainTransfers.size() - 1).amount;
                 old.endToEndRetention = chain.e2e();
                 old.endAt = chainTransfers.get(chainTransfers.size() - 1).occurredAt;
